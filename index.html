@@ -22,10 +22,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="P10">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>🥗🏋️ PROJETO -10!</title>
-<!-- Firebase Compat SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <style>
   :root { color-scheme: light; }
@@ -248,6 +252,34 @@
   }
   .cfg-del-btn { background: none; border: none; color: #dc3545; font-size: 12px; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
   .cfg-del-btn:hover { background: #fff3f4; }
+
+  /* ── DAY NAVIGATION ── */
+  .day-nav-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: white; border-radius: 14px; padding: 10px 14px;
+    margin-bottom: 12px; box-shadow: 0 1px 5px rgba(0,0,0,0.06);
+  }
+  .day-nav-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #e5e7eb;
+    background: white; color: #444; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .day-nav-btn:hover:not(:disabled) { background: #f0f4ff; border-color: #4285f4; color: #4285f4; }
+  .day-nav-btn:disabled { opacity: 0.25; cursor: default; }
+  .day-nav-label { flex: 1; text-align: center; font-size: 13px; font-weight: 800; color: #333; }
+  .day-nav-sub { font-size: 10px; font-weight: 600; color: #aaa; text-align: center; margin-top: 1px; }
+  .day-nav-today-btn {
+    padding: 5px 12px; border-radius: 20px; border: 1.5px solid #4285f4;
+    background: #f0f4ff; color: #4285f4; font-size: 11px; font-weight: 800;
+    cursor: pointer; white-space: nowrap;
+  }
+  .day-nav-today-btn:hover { background: #4285f4; color: white; }
+  .past-day-banner {
+    background: #fff8e1; border: 1.5px solid #ffc107; border-radius: 12px;
+    padding: 8px 14px; margin-bottom: 12px; font-size: 11px; color: #856404;
+    font-weight: 700; text-align: center;
+  }
   /* Editable config fields */
   .cfg-cat-header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
   .cfg-emoji-inp { width: 38px; padding: 4px 5px; border-radius: 8px; border: 1.5px solid #e5e7eb; font-size: 16px; text-align: center; outline: none; }
@@ -565,6 +597,20 @@
 
   <!-- TAB: HOJE -->
   <div id="tab-hoje" class="tab-pane active">
+    <!-- Day navigation bar -->
+    <div class="day-nav-bar">
+      <button class="day-nav-btn" id="nav-prev-btn" onclick="navDay(-1)" title="Dia anterior">◀</button>
+      <div style="flex:1;text-align:center;">
+        <div class="day-nav-label" id="nav-day-label">Hoje</div>
+        <div class="day-nav-sub" id="nav-day-sub"></div>
+      </div>
+      <button class="day-nav-today-btn" id="nav-today-btn" onclick="navToToday()" style="display:none">Ir para hoje</button>
+      <button class="day-nav-btn" id="nav-next-btn" onclick="navDay(+1)" title="Próximo dia" disabled>▶</button>
+    </div>
+    <!-- Past day warning banner -->
+    <div class="past-day-banner" id="past-day-banner" style="display:none">
+      ✏️ Editando dia anterior — as alterações serão salvas nesta data
+    </div>
     <div class="section-card">
       <div class="section-heading">💚 Hábitos</div>
       <div id="habits-container"></div>
@@ -750,70 +796,6 @@
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════════════
-// FIREBASE — substitui localStorage por banco em nuvem
-// ══════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyA9BrOP0qn6hRkNYH2qM8Hnb6b01IVpSHY",
-  authDomain:        "projeto10-p10.firebaseapp.com",
-  databaseURL:       "https://projeto10-p10-default-rtdb.firebaseio.com",
-  projectId:         "projeto10-p10",
-  storageBucket:     "projeto10-p10.firebasestorage.app",
-  messagingSenderId: "250492807671",
-  appId:             "1:250492807671:web:2e1de2bcc16f2ce3f826f2"
-};
-
-// Cache local — leituras síncronas
-const _fireCache = { dias: {}, config: {}, corpo: {} };
-let _db = null;
-
-function _fireInit() {
-  try { firebase.initializeApp(FIREBASE_CONFIG); }
-  catch(e) { if (e.code !== 'app/duplicate-app') { console.error('Firebase init error:', e); return; } }
-  _db = firebase.database();
-}
-
-function _fireSet(path, value) {
-  if (!_db) return;
-  _db.ref(path).set(value).catch(e => console.warn('Firebase write error [' + path + ']:', e));
-}
-
-async function _fireLoadAll() {
-  if (!_db) return;
-  try {
-    const snap = await _db.ref('p10').once('value');
-    const d = snap.val() || {};
-    _fireCache.dias   = d.dias   || {};
-    _fireCache.config = d.config || {};
-    _fireCache.corpo  = d.corpo  || {};
-  } catch(e) { console.warn('Firebase load error:', e); }
-}
-
-function _fireListen() {
-  if (!_db) return;
-  _db.ref('p10/dias').on('value', snap => {
-    const newDias = snap.val() || {};
-    const prevTodayStr = JSON.stringify(_fireCache.dias[TODAY_ISO]);
-    _fireCache.dias = newDias;
-    if (JSON.stringify(newDias[TODAY_ISO]) !== prevTodayStr) {
-      sel = {};
-      const fbToday = newDias[TODAY_ISO] || {};
-      Object.keys(fbToday).filter(k => !k.startsWith('_')).forEach(k => { sel[k] = fbToday[k]; });
-      updateScore();
-      buildRows(getHabits(), 'habits-container');
-      buildRows(getPenalties(), 'penalties-container');
-    }
-    const activeTab = document.querySelector('.tab-pane.active')?.id;
-    if (activeTab === 'tab-metas') renderMetas();
-  });
-  _db.ref('p10/config').on('value', snap => { _fireCache.config = snap.val() || {}; _cfg = null; });
-  _db.ref('p10/corpo').on('value', snap => {
-    _fireCache.corpo = snap.val() || {};
-    const activeTab = document.querySelector('.tab-pane.active')?.id;
-    if (activeTab === 'tab-corpo') renderCorpo();
-  });
-}
-
 // ═══════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════
@@ -823,8 +805,12 @@ const TARGET_PER_WEEK = 5;
 const TARGET_PER_DAY  = TARGET_PER_WEEK / 7;
 
 const now       = new Date();
-const TODAY_ISO = now.toISOString().slice(0, 10);
+// Use LOCAL date (not UTC) so midnight-3am in Brazil doesn't show yesterday
+const TODAY_ISO = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 const TODAY_KEY = 'projeto10_' + TODAY_ISO;
+
+// Currently viewed date (for past-day editing)
+let viewingISO = TODAY_ISO;
 
 const DAYS_S = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const DAYS_F = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
@@ -898,10 +884,10 @@ const CONFIG_KEY = 'p10_config_v1';
 let _cfg = null;
 
 function getCfg() {
-  if (!_cfg) { _cfg = _fireCache.config || {}; }
+  if (!_cfg) { try { _cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}'); } catch(e) { _cfg = {}; } }
   return _cfg;
 }
-function saveCfg(cfg) { _cfg = cfg; _fireCache.config = cfg; _fireSet('p10/config', cfg); }
+function saveCfg(cfg) { _cfg = cfg; try { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); } catch(e) {} }
 
 function valToHint(v) { return (v > 0 ? '+' : '') + v; }
 function valToCls(v) { return v >= 1 ? 'pos' : v === 0 ? 'neu' : v >= -3 ? 'neg1' : v >= -6 ? 'neg2' : 'neg3'; }
@@ -930,14 +916,39 @@ function getAllCats()    { return [...getHabits(), ...getPenalties()]; }
 // ═══════════════════════════════════════════════
 // DAILY SCORE STATE
 // ═══════════════════════════════════════════════
-// sel é inicializado em initApp() após carregar dados do Firebase
 let sel = {};
+try { sel = JSON.parse(localStorage.getItem(TODAY_KEY) || '{}'); } catch(e) {}
+
+// Returns the selections object for the currently viewed day.
+// For today returns sel by REFERENCE so the click handler can mutate it directly.
+// For past days returns a fresh copy parsed from localStorage.
+function getViewSel() {
+  if (viewingISO === TODAY_ISO) return sel;
+  try { return JSON.parse(localStorage.getItem('projeto10_' + viewingISO) || '{}'); } catch(e) { return {}; }
+}
+
+// Save selections to the correct day key in localStorage.
+// Preserves _-prefixed internal keys (e.g. _gcalId) already stored for that day.
+// Does NOT touch in-memory `sel`: for today, sel was already mutated by the caller
+// (same reference from getViewSel). For past days, sel should remain as today's data.
+function saveViewSel(newSel) {
+  try {
+    const key = 'projeto10_' + viewingISO;
+    // Read existing entry to preserve _gcalId and other internal keys
+    let existing = {};
+    try { existing = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+    const merged = {};
+    Object.keys(existing).forEach(k => { if (k.startsWith('_')) merged[k] = existing[k]; });
+    Object.assign(merged, newSel);
+    localStorage.setItem(key, JSON.stringify(merged));
+  } catch(e) {}
+}
 
 function getStoredScore(iso) {
-  const data = _fireCache.dias[iso];
-  if (!data) return null;
-  const v = Object.entries(data).filter(([k,v]) => !k.startsWith('_') && typeof v === 'number').map(([,v]) => v);
-  return v.length ? v.reduce((a,b) => a+b, 0) : null;
+  const raw = localStorage.getItem('projeto10_' + iso);
+  if (!raw) return null;
+  try { const v = Object.values(JSON.parse(raw)); return v.length ? v.reduce((a,b)=>a+b,0) : null; }
+  catch(e) { return null; }
 }
 
 // ═══════════════════════════════════════════════
@@ -987,6 +998,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+  if (name === 'hoje')   loadViewingDay(TODAY_ISO); // always return to today
   if (name === 'metas')  renderMetas();
   if (name === 'corpo')  renderCorpo();
   if (name === 'config') renderConfig();
@@ -1009,7 +1021,7 @@ function buildRows(cats, containerId) {
       </div>
       <div class="options-row" id="opts-${cat.id}">
         ${cat.options.map(o => `
-          <button class="opt-btn ${o.cls}${sel[cat.id] === o.value ? ' sel' : ''}"
+          <button class="opt-btn ${o.cls}${getViewSel()[cat.id] === o.value ? ' sel' : ''}"
                   data-cat="${cat.id}" data-val="${o.value}">
             ${o.label}<span class="opt-hint">${o.hint}</span>
           </button>`).join('')}
@@ -1026,12 +1038,12 @@ document.addEventListener('click', e => {
   if (!btn) return;
   const catId = btn.dataset.cat;
   const val   = parseFloat(btn.dataset.val);
-  if (sel[catId] === val) { delete sel[catId]; } else { sel[catId] = val; }
-  { const _meta = {}; if (_fireCache.dias[TODAY_ISO]?._gcalId) _meta._gcalId = _fireCache.dias[TODAY_ISO]._gcalId;
-    const _todayData = { ..._meta, ...sel }; _fireCache.dias[TODAY_ISO] = _todayData; _fireSet('p10/dias/' + TODAY_ISO, _todayData); }
+  const cur = getViewSel();
+  if (cur[catId] === val) { delete cur[catId]; } else { cur[catId] = val; }
+  saveViewSel(cur);
   document.getElementById(`opts-${catId}`)
     .querySelectorAll('.opt-btn')
-    .forEach(b => b.classList.toggle('sel', parseFloat(b.dataset.val) === sel[catId]));
+    .forEach(b => b.classList.toggle('sel', parseFloat(b.dataset.val) === cur[catId]));
   updateScore();
 });
 
@@ -1039,10 +1051,11 @@ document.addEventListener('click', e => {
 // UPDATE SCORE
 // ═══════════════════════════════════════════════
 function updateScore() {
+  const viewSel = getViewSel();
   const allCats = getAllCats();
-  const filled  = Object.keys(sel).filter(k => allCats.find(c => c.id === k)).length;
+  const filled  = Object.keys(viewSel).filter(k => allCats.find(c => c.id === k)).length;
   const total   = allCats.length;
-  const score   = Object.values(sel).reduce((a,b)=>a+b, 0);
+  const score   = Object.values(viewSel).reduce((a,b)=>a+b, 0);
 
   document.getElementById('completion-pill').textContent = `${filled}/${total} preenchidos`;
 
@@ -1053,7 +1066,8 @@ function updateScore() {
 
   if (filled === 0) {
     numEl.textContent = '—'; numEl.style.color = 'rgba(255,255,255,0.3)';
-    lblEl.textContent = 'Preencha seus hábitos abaixo'; lblEl.style.color = 'rgba(255,255,255,0.5)';
+    lblEl.textContent = viewingISO === TODAY_ISO ? 'Preencha seus hábitos abaixo' : 'Nenhum dado neste dia';
+    lblEl.style.color = 'rgba(255,255,255,0.5)';
     barEl.style.width = '50%'; barEl.style.background = '#555';
     chEl.innerHTML = ''; return;
   }
@@ -1064,14 +1078,84 @@ function updateScore() {
   numEl.style.color = c; lblEl.style.color = c;
   lblEl.textContent = scoreLabel(score);
 
-  const hScore = getHabits().filter(x => sel[x.id] !== undefined).reduce((a,x)=>a+sel[x.id], 0);
-  const pScore = getPenalties().filter(x => sel[x.id] !== undefined).reduce((a,x)=>a+sel[x.id], 0);
+  const hScore = getHabits().filter(x => viewSel[x.id] !== undefined).reduce((a,x)=>a+viewSel[x.id], 0);
+  const pScore = getPenalties().filter(x => viewSel[x.id] !== undefined).reduce((a,x)=>a+viewSel[x.id], 0);
   chEl.innerHTML = `
     <div class="score-chip">Hábitos: ${hScore>=0?'+':''}${hScore}</div>
     <div class="score-chip">Penalidades: ${pScore}</div>`;
 
   const pct = Math.max(0, Math.min(100, ((score + 10) / 20) * 100));
   barEl.style.width = pct + '%'; barEl.style.background = c;
+}
+
+// ═══════════════════════════════════════════════
+// DAY NAVIGATION
+// ═══════════════════════════════════════════════
+function isoAddDays(iso, delta) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function fmtNavDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return `${DAYS_S[d.getDay()]}, ${d.getDate()} de ${MONTHS[d.getMonth()]}`;
+}
+
+function navDay(delta) {
+  const next = isoAddDays(viewingISO, delta);
+  // Don't go before PROJECT_START or after today
+  if (next < PROJECT_START || next > TODAY_ISO) return;
+  loadViewingDay(next);
+}
+
+function navToToday() {
+  loadViewingDay(TODAY_ISO);
+}
+
+function loadViewingDay(iso) {
+  viewingISO = iso;
+  const isToday = (iso === TODAY_ISO);
+
+  // Update nav UI
+  const labelEl  = document.getElementById('nav-day-label');
+  const subEl    = document.getElementById('nav-day-sub');
+  const prevBtn  = document.getElementById('nav-prev-btn');
+  const nextBtn  = document.getElementById('nav-next-btn');
+  const todayBtn = document.getElementById('nav-today-btn');
+  const banner   = document.getElementById('past-day-banner');
+
+  if (isToday) {
+    labelEl.textContent = 'Hoje';
+    subEl.textContent   = fmtNavDate(iso);
+    banner.style.display = 'none';
+    todayBtn.style.display = 'none';
+    // Restore greeting for today
+    const h2 = now.getHours();
+    const greetEl = document.getElementById('greeting');
+    if (greetEl) greetEl.textContent = h2 < 12 ? 'Bom dia ☀️' : h2 < 18 ? 'Boa tarde 🌤' : 'Boa noite 🌙';
+  } else {
+    const daysAgo = Math.round((new Date(TODAY_ISO+'T12:00:00') - new Date(iso+'T12:00:00')) / 86400000);
+    labelEl.textContent = daysAgo === 1 ? 'Ontem' : `${daysAgo} dias atrás`;
+    subEl.textContent   = fmtNavDate(iso);
+    banner.style.display = '';
+    todayBtn.style.display = '';
+    // Show past date indicator in greeting
+    const greetEl = document.getElementById('greeting');
+    if (greetEl) greetEl.textContent = '📅 Editando dia anterior';
+  }
+
+  prevBtn.disabled = (iso <= PROJECT_START);
+  nextBtn.disabled = isToday;
+
+  // Update header date display and greeting
+  const d = new Date(iso + 'T12:00:00');
+  document.getElementById('date-display').textContent = fmtNavDate(iso);
+
+  // Rebuild habit/penalty rows with the new day's data
+  buildRows(getHabits(), 'habits-container');
+  buildRows(getPenalties(), 'penalties-container');
+  updateScore();
 }
 
 // ═══════════════════════════════════════════════
@@ -1439,12 +1523,8 @@ const CORPO_FIELDS = ['peso','cintura','quadril','peito','braco','coxa'];
 const CORPO_LABELS = { peso:'Peso', cintura:'Cintura', quadril:'Quadril', peito:'Peito', braco:'Braço', coxa:'Coxa' };
 const CORPO_UNITS  = { peso:'kg', cintura:'cm', quadril:'cm', peito:'cm', braco:'cm', coxa:'cm' };
 
-function loadCorpo() {
-  return Object.values(_fireCache.corpo || {}).sort((a,b) => a.date.localeCompare(b.date));
-}
-function saveCorpo(data) {
-  const map = {}; data.forEach(e => { map[e.date] = e; }); _fireCache.corpo = map; _fireSet('p10/corpo', map);
-}
+function loadCorpo()      { try { return JSON.parse(localStorage.getItem(CORPO_KEY) || '[]'); } catch(e) { return []; } }
+function saveCorpo(data)  { try { localStorage.setItem(CORPO_KEY, JSON.stringify(data)); } catch(e) {} }
 function fmtDate(s)       { const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; }
 
 function salvarCorpo() {
@@ -1619,11 +1699,16 @@ function saveCatConfig(catId) {
 
   saveCfg(cfg);
   rebuildHabitsUI();
-  renderConfig();
 
-  // Flash the save button green briefly
+  // Flash the save button green briefly, then re-render
   const btn = div.querySelector('.cfg-cat-save-btn');
-  if (btn) { btn.textContent = '✅ Salvo!'; btn.style.background = '#28a745'; setTimeout(() => renderConfig(), 900); }
+  if (btn) {
+    const origText = btn.textContent;
+    btn.textContent = '✅ Salvo!'; btn.style.background = '#28a745';
+    setTimeout(() => renderConfig(), 800);
+  } else {
+    renderConfig();
+  }
 }
 
 function addCatOption(catId) {
@@ -1757,9 +1842,13 @@ let treinosMonthOffset = 0; // months from current
 let treinosWeekOffset  = 0; // weeks from current
 
 function getFisicaLevel(iso) {
-  const data = _fireCache.dias[iso];
-  if (!data || data.fisica === undefined) return null;
-  return data.fisica;
+  try {
+    const raw = localStorage.getItem('projeto10_' + iso);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data.fisica === undefined) return null;
+    return data.fisica;
+  } catch { return null; }
 }
 function actForVal(val) {
   if (val === null) return null;
@@ -1796,10 +1885,10 @@ async function renderTreinos() {
     Object.entries(gcalData).forEach(([iso, d]) => {
       if (d.p10Val !== null && getFisicaLevel(iso) === null) {
         try {
-          const existing = _fireCache.dias[iso] ? { ..._fireCache.dias[iso] } : {};
+          const existing = JSON.parse(localStorage.getItem('projeto10_' + iso) || '{}');
           existing.fisica = d.p10Val;
           if (d.p10EventId) existing._gcalId = d.p10EventId;
-          _fireCache.dias[iso] = existing; _fireSet('p10/dias/' + iso, existing);
+          localStorage.setItem('projeto10_' + iso, JSON.stringify(existing));
         } catch {}
       }
     });
@@ -2147,28 +2236,37 @@ function buildGCalMap(events) {
   return map;
 }
 
-// ── Persisting GCal ID no Firebase ──
+// ── Persisting GCal ID in localStorage ──
 function getStoredGCalId(iso) {
-  return (_fireCache.dias[iso] || {})._gcalId || null;
+  try { return JSON.parse(localStorage.getItem('projeto10_' + iso) || '{}')._gcalId || null; } catch { return null; }
 }
 function storeGCalId(iso, id) {
-  if (!_fireCache.dias[iso]) _fireCache.dias[iso] = {};
-  if (id) _fireCache.dias[iso]._gcalId = id; else delete _fireCache.dias[iso]._gcalId;
-  _fireSet('p10/dias/' + iso, _fireCache.dias[iso]);
+  try {
+    const key = 'projeto10_' + iso;
+    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    if (id) d._gcalId = id; else delete d._gcalId;
+    localStorage.setItem(key, JSON.stringify(d));
+  } catch {}
 }
 function setFisicaForDay(iso, val) {
-  if (!_fireCache.dias[iso]) _fireCache.dias[iso] = {};
-  if (val !== null) _fireCache.dias[iso].fisica = val; else delete _fireCache.dias[iso].fisica;
-  _fireSet('p10/dias/' + iso, _fireCache.dias[iso]);
-  if (iso === TODAY_ISO) { if (val !== null) sel.fisica = val; else delete sel.fisica; }
+  const key = 'projeto10_' + iso;
+  try {
+    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    if (val !== null) d.fisica = val; else delete d.fisica;
+    localStorage.setItem(key, JSON.stringify(d));
+    if (iso === TODAY_ISO) { if (val !== null) sel.fisica = val; else delete sel.fisica; }
+  } catch {}
 }
 function removeFisicaForDay(iso) {
-  const d = _fireCache.dias[iso] ? { ..._fireCache.dias[iso] } : {};
-  delete d.fisica; delete d._gcalId;
-  const hasOther = Object.keys(d).some(k => !k.startsWith('_') && k !== 'fisica');
-  if (hasOther) { _fireCache.dias[iso] = d; _fireSet('p10/dias/' + iso, d); }
-  else { delete _fireCache.dias[iso]; _fireSet('p10/dias/' + iso, null); }
-  if (iso === TODAY_ISO) delete sel.fisica;
+  const key = 'projeto10_' + iso;
+  try {
+    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    delete d.fisica; delete d._gcalId;
+    const hasOther = Object.keys(d).some(k => !k.startsWith('_') && k !== 'fisica');
+    if (hasOther) localStorage.setItem(key, JSON.stringify(d));
+    else localStorage.removeItem(key);
+    if (iso === TODAY_ISO) delete sel.fisica;
+  } catch {}
 }
 
 // ── GCal event CRUD ──
@@ -2428,34 +2526,22 @@ async function loadTasks() {
 }
 
 // ═══════════════════════════════════════════════
-// COWORK POLYFILL — para quando aberto fora do Cowork (GitHub Pages)
+// INIT
 // ═══════════════════════════════════════════════
-if (!window.cowork) {
-  window.cowork = {
-    callMcpTool: async () => { throw new Error('MCP não disponível fora do Cowork'); }
-  };
-}
+buildRows(getHabits(), 'habits-container');
+buildRows(getPenalties(), 'penalties-container');
+updateScore();
 
-// ═══════════════════════════════════════════════
-// INIT — async para aguardar Firebase
-// ═══════════════════════════════════════════════
-async function initApp() {
-  const scoreNum = document.getElementById('score-number');
-  if (scoreNum) { scoreNum.textContent = '⏳'; scoreNum.style.color = 'rgba(255,255,255,0.4)'; }
-  _fireInit();
-  await _fireLoadAll();
-  _fireListen();
-  sel = {};
-  const fbToday = _fireCache.dias[TODAY_ISO] || {};
-  Object.keys(fbToday).filter(k => !k.startsWith('_')).forEach(k => { sel[k] = fbToday[k]; });
-  buildRows(getHabits(), 'habits-container');
-  buildRows(getPenalties(), 'penalties-container');
-  updateScore();
-  renderCorpo();
-  loadCal();
-  loadTasks();
-}
-initApp();
+// Initialize day nav label
+(function() {
+  const sub = document.getElementById('nav-day-sub');
+  if (sub) sub.textContent = fmtNavDate(TODAY_ISO);
+  const prev = document.getElementById('nav-prev-btn');
+  if (prev) prev.disabled = (TODAY_ISO <= PROJECT_START);
+})();
+renderCorpo();
+loadCal();
+loadTasks();
 </script>
 
 <!-- ── DAY EDIT OVERLAY ── -->
@@ -2495,5 +2581,15 @@ initApp();
   </div>
 </div>
 
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(r => console.log('[PWA] SW registrado:', r.scope))
+      .catch(e => console.warn('[PWA] SW falhou:', e));
+  });
+}
+</script>
 </body>
 </html>
