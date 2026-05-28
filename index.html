@@ -576,6 +576,7 @@
       <div class="hero-title">🥗🏋️ PROJETO -10!</div>
       <div class="hero-sub" id="completion-pill">0/9 preenchidos</div>
     </div>
+    <button id="btn-save-all" onclick="_fireSaveAll()" title="Salvar tudo agora" style="background:none;border:2px solid rgba(255,255,255,0.25);border-radius:10px;color:#fff;font-size:20px;padding:6px 10px;cursor:pointer;align-self:center;transition:all .2s;">💾</button>
   </div>
   <div class="score-section">
     <div class="score-number" id="score-number">—</div>
@@ -811,6 +812,24 @@ async function _fireLoadAll(){if(!_uid())return;const s=await firebase.database(
 function _fireListen(){if(!_uid())return;firebase.database().ref(_userPath('kv')).on('value',s=>{if(s.exists())Object.assign(_fireCache,s.val());});}
 async function signInWithGoogle(){const btn=document.getElementById('btn-google-login');if(btn){btn.disabled=true;btn.textContent='Entrando…';}try{await _fireAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}catch(e){if(btn){btn.disabled=false;btn.textContent='🔑 Entrar com Google';}alert('Erro: '+(e.message||e));}}
 function signOut(){if(confirm('Sair da conta?'))_fireAuth.signOut().then(()=>location.reload());}
+async function _fireSaveAll(){
+  const btn=document.getElementById('btn-save-all');
+  if(!_uid()||!_fireDb){alert('Não conectado ao Firebase.');return;}
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  try{
+    const updates={};
+    for(const[k,v]of Object.entries(_fireCache)){
+      updates['users/'+_uid()+'/kv/'+k.replace(/[.#$[\]]/g,'_')]=v;
+    }
+    await firebase.database().ref().update(updates);
+    if(btn){btn.textContent='✅';btn.style.borderColor='#4ade80';
+      setTimeout(()=>{btn.textContent='💾';btn.style.borderColor='rgba(255,255,255,0.25)';btn.disabled=false;},2000);}
+  }catch(e){
+    if(btn){btn.textContent='❌';btn.style.borderColor='#f87171';
+      setTimeout(()=>{btn.textContent='💾';btn.style.borderColor='rgba(255,255,255,0.25)';btn.disabled=false;},2000);}
+    alert('Erro ao salvar: '+(e.message||e));
+  }
+}
 async function _renderApp(){try{sel=JSON.parse(_fireGet(TODAY_KEY)||'{}')||{};}catch(e){sel={};}_cfg=null;loadViewingDay(TODAY_ISO);updateScore();}
 async function initApp(){_fireInit();await new Promise(r=>{_fireAuth.onAuthStateChanged(u=>{_currentUser=u;r();});});if(!_currentUser){const ls=document.getElementById('login-screen');if(ls)ls.style.display='flex';_fireAuth.onAuthStateChanged(async u=>{if(u){_currentUser=u;const ls2=document.getElementById('login-screen');if(ls2)ls2.style.display='none';await _fireLoadAll();_fireListen();await _renderApp();}});return;}await _fireLoadAll();_fireListen();await _renderApp();}
 // ═══════════════════════════════════════════════
