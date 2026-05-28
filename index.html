@@ -30,6 +30,9 @@
 <meta name="apple-mobile-web-app-title" content="P10">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>🥗🏋️ PROJETO -10!</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <style>
   :root { color-scheme: light; }
@@ -796,6 +799,20 @@
 </div>
 
 <script>
+// FIREBASE
+const FIREBASE_CONFIG={apiKey:"AIzaSyA9BrOP0qn6hRkNYH2qM8Hnb6b01IVpSHY",authDomain:"projeto10-p10.firebaseapp.com",databaseURL:"https://projeto10-p10-default-rtdb.firebaseio.com",projectId:"projeto10-p10",storageBucket:"projeto10-p10.firebasestorage.app",messagingSenderId:"250492807671",appId:"1:250492807671:web:2e1de2bcc16f2ce3f826f2"};
+let _currentUser=null,_fireDb=null,_fireAuth=null;const _fireCache={};
+function _uid(){return _currentUser?_currentUser.uid:null;}
+function _userPath(p){return'users/'+_uid()+'/'+p;}
+function _fireGet(k){return _fireCache.hasOwnProperty(k)?_fireCache[k]:null;}
+function _fireSet(k,v){_fireCache[k]=v;if(!_fireDb||!_uid())return;firebase.database().ref(_userPath('kv/'+k.replace(/[.#$[\]]/g,'_'))).set(v).catch(()=>{});}
+function _fireInit(){if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);_fireDb=firebase.database();_fireAuth=firebase.auth();}
+async function _fireLoadAll(){if(!_uid())return;const s=await firebase.database().ref(_userPath('kv')).get();if(s.exists())Object.assign(_fireCache,s.val());}
+function _fireListen(){if(!_uid())return;firebase.database().ref(_userPath('kv')).on('value',s=>{if(s.exists())Object.assign(_fireCache,s.val());});}
+async function signInWithGoogle(){const btn=document.getElementById('btn-google-login');if(btn){btn.disabled=true;btn.textContent='Entrando…';}try{await _fireAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}catch(e){if(btn){btn.disabled=false;btn.textContent='🔑 Entrar com Google';}alert('Erro: '+(e.message||e));}}
+function signOut(){if(confirm('Sair da conta?'))_fireAuth.signOut().then(()=>location.reload());}
+async function _renderApp(){try{sel=JSON.parse(_fireGet(TODAY_KEY)||'{}')||{};}catch(e){sel={};}_cfg=null;loadViewingDay(TODAY_ISO);updateScore();}
+async function initApp(){_fireInit();await new Promise(r=>{_fireAuth.onAuthStateChanged(u=>{_currentUser=u;r();});});if(!_currentUser){const ls=document.getElementById('login-screen');if(ls)ls.style.display='flex';_fireAuth.onAuthStateChanged(async u=>{if(u){_currentUser=u;const ls2=document.getElementById('login-screen');if(ls2)ls2.style.display='none';await _fireLoadAll();_fireListen();await _renderApp();}});return;}await _fireLoadAll();_fireListen();await _renderApp();}
 // ═══════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════
@@ -884,10 +901,10 @@ const CONFIG_KEY = 'p10_config_v1';
 let _cfg = null;
 
 function getCfg() {
-  if (!_cfg) { try { _cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}'); } catch(e) { _cfg = {}; } }
+  if (!_cfg) { try { _cfg = JSON.parse(_fireGet(CONFIG_KEY) || '{}'); } catch(e) { _cfg = {}; } }
   return _cfg;
 }
-function saveCfg(cfg) { _cfg = cfg; try { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); } catch(e) {} }
+function saveCfg(cfg) { _cfg = cfg; try { _fireSet(CONFIG_KEY, JSON.stringify(cfg)); } catch(e) {} }
 
 function valToHint(v) { return (v > 0 ? '+' : '') + v; }
 function valToCls(v) { return v >= 1 ? 'pos' : v === 0 ? 'neu' : v >= -3 ? 'neg1' : v >= -6 ? 'neg2' : 'neg3'; }
@@ -917,17 +934,17 @@ function getAllCats()    { return [...getHabits(), ...getPenalties()]; }
 // DAILY SCORE STATE
 // ═══════════════════════════════════════════════
 let sel = {};
-try { sel = JSON.parse(localStorage.getItem(TODAY_KEY) || '{}'); } catch(e) {}
+try { sel = JSON.parse(_fireGet(TODAY_KEY) || '{}'); } catch(e) {}
 
 // Returns the selections object for the currently viewed day.
 // For today returns sel by REFERENCE so the click handler can mutate it directly.
-// For past days returns a fresh copy parsed from localStorage.
+// For past days returns a fresh copy parsed from /* localStorage */.
 function getViewSel() {
   if (viewingISO === TODAY_ISO) return sel;
-  try { return JSON.parse(localStorage.getItem('projeto10_' + viewingISO) || '{}'); } catch(e) { return {}; }
+  try { return JSON.parse(_fireGet('projeto10_' + viewingISO) || '{}'); } catch(e) { return {}; }
 }
 
-// Save selections to the correct day key in localStorage.
+// Save selections to the correct day key in /* localStorage */.
 // Preserves _-prefixed internal keys (e.g. _gcalId) already stored for that day.
 // Does NOT touch in-memory `sel`: for today, sel was already mutated by the caller
 // (same reference from getViewSel). For past days, sel should remain as today's data.
@@ -936,16 +953,16 @@ function saveViewSel(newSel) {
     const key = 'projeto10_' + viewingISO;
     // Read existing entry to preserve _gcalId and other internal keys
     let existing = {};
-    try { existing = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+    try { existing = JSON.parse(_fireGet(key) || '{}'); } catch(e) {}
     const merged = {};
     Object.keys(existing).forEach(k => { if (k.startsWith('_')) merged[k] = existing[k]; });
     Object.assign(merged, newSel);
-    localStorage.setItem(key, JSON.stringify(merged));
+    _fireSet(key, JSON.stringify(merged));
   } catch(e) {}
 }
 
 function getStoredScore(iso) {
-  const raw = localStorage.getItem('projeto10_' + iso);
+  const raw = _fireGet('projeto10_' + iso);
   if (!raw) return null;
   try { const v = Object.values(JSON.parse(raw)); return v.length ? v.reduce((a,b)=>a+b,0) : null; }
   catch(e) { return null; }
@@ -1523,8 +1540,8 @@ const CORPO_FIELDS = ['peso','cintura','quadril','peito','braco','coxa'];
 const CORPO_LABELS = { peso:'Peso', cintura:'Cintura', quadril:'Quadril', peito:'Peito', braco:'Braço', coxa:'Coxa' };
 const CORPO_UNITS  = { peso:'kg', cintura:'cm', quadril:'cm', peito:'cm', braco:'cm', coxa:'cm' };
 
-function loadCorpo()      { try { return JSON.parse(localStorage.getItem(CORPO_KEY) || '[]'); } catch(e) { return []; } }
-function saveCorpo(data)  { try { localStorage.setItem(CORPO_KEY, JSON.stringify(data)); } catch(e) {} }
+function loadCorpo()      { try { return JSON.parse(_fireGet(CORPO_KEY) || '[]'); } catch(e) { return []; } }
+function saveCorpo(data)  { try { _fireSet(CORPO_KEY, JSON.stringify(data)); } catch(e) {} }
 function fmtDate(s)       { const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; }
 
 function salvarCorpo() {
@@ -1843,7 +1860,7 @@ let treinosWeekOffset  = 0; // weeks from current
 
 function getFisicaLevel(iso) {
   try {
-    const raw = localStorage.getItem('projeto10_' + iso);
+    const raw = _fireGet('projeto10_' + iso);
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (data.fisica === undefined) return null;
@@ -1881,14 +1898,14 @@ async function renderTreinos() {
   try {
     const evts = await loadGCalForPeriod(range.start, range.end);
     gcalData = buildGCalMap(evts);
-    // Auto-sync P10 events that are in GCal but not in localStorage
+    // Auto-sync P10 events that are in GCal but not in /* localStorage */
     Object.entries(gcalData).forEach(([iso, d]) => {
       if (d.p10Val !== null && getFisicaLevel(iso) === null) {
         try {
-          const existing = JSON.parse(localStorage.getItem('projeto10_' + iso) || '{}');
+          const existing = JSON.parse(_fireGet('projeto10_' + iso) || '{}');
           existing.fisica = d.p10Val;
           if (d.p10EventId) existing._gcalId = d.p10EventId;
-          localStorage.setItem('projeto10_' + iso, JSON.stringify(existing));
+          _fireSet('projeto10_' + iso, JSON.stringify(existing));
         } catch {}
       }
     });
@@ -2236,35 +2253,35 @@ function buildGCalMap(events) {
   return map;
 }
 
-// ── Persisting GCal ID in localStorage ──
+// ── Persisting GCal ID in /* localStorage */ ──
 function getStoredGCalId(iso) {
-  try { return JSON.parse(localStorage.getItem('projeto10_' + iso) || '{}')._gcalId || null; } catch { return null; }
+  try { return JSON.parse(_fireGet('projeto10_' + iso) || '{}')._gcalId || null; } catch { return null; }
 }
 function storeGCalId(iso, id) {
   try {
     const key = 'projeto10_' + iso;
-    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    const d = JSON.parse(_fireGet(key) || '{}');
     if (id) d._gcalId = id; else delete d._gcalId;
-    localStorage.setItem(key, JSON.stringify(d));
+    _fireSet(key, JSON.stringify(d));
   } catch {}
 }
 function setFisicaForDay(iso, val) {
   const key = 'projeto10_' + iso;
   try {
-    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    const d = JSON.parse(_fireGet(key) || '{}');
     if (val !== null) d.fisica = val; else delete d.fisica;
-    localStorage.setItem(key, JSON.stringify(d));
+    _fireSet(key, JSON.stringify(d));
     if (iso === TODAY_ISO) { if (val !== null) sel.fisica = val; else delete sel.fisica; }
   } catch {}
 }
 function removeFisicaForDay(iso) {
   const key = 'projeto10_' + iso;
   try {
-    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    const d = JSON.parse(_fireGet(key) || '{}');
     delete d.fisica; delete d._gcalId;
     const hasOther = Object.keys(d).some(k => !k.startsWith('_') && k !== 'fisica');
-    if (hasOther) localStorage.setItem(key, JSON.stringify(d));
-    else localStorage.removeItem(key);
+    if (hasOther) _fireSet(key, JSON.stringify(d));
+    else delete _fireCache[key];
     if (iso === TODAY_ISO) delete sel.fisica;
   } catch {}
 }
@@ -2461,7 +2478,7 @@ async function deleteDayActivity() {
     // Remove from GCal
     const existingId = getStoredGCalId(editingISO) || editDayGCal?.p10EventId;
     if (existingId) await deleteGCalEvent(existingId);
-    // Remove from localStorage
+    // Remove from /* localStorage */
     removeFisicaForDay(editingISO);
 
     if (editingISO === TODAY_ISO) updateScore();
@@ -2528,9 +2545,7 @@ async function loadTasks() {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-buildRows(getHabits(), 'habits-container');
-buildRows(getPenalties(), 'penalties-container');
-updateScore();
+initApp();
 
 // Initialize day nav label
 (function() {
@@ -2591,5 +2606,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-</body>
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#0d1b2a;z-index:9999;align-items:center;justify-content:center;flex-direction:column;"><div style="background:#1e293b;border-radius:20px;padding:48px 40px;text-align:center;max-width:380px;width:90%;"><div style="font-size:56px;">🥗🏋️</div><h1 style="color:#fff;margin:16px 0 8px;">PROJETO -10!</h1><p style="color:#94a3b8;font-size:14px;margin-bottom:24px;">Seu painel pessoal.<br>Entre com Google para começar.</p><button id="btn-google-login" onclick="signInWithGoogle()" style="width:100%;padding:14px;border:none;border-radius:12px;background:#fff;color:#333;font-size:15px;font-weight:700;cursor:pointer;">🔑 Entrar com Google</button></div></div></body>
 </html>
