@@ -11,7 +11,7 @@
     "mcp__6daaa522-bf94-4d4e-8bff-89c0b26c51a5__delete_event"
   ],
   "mcpServerNames": [
-    "Google Calendar",
+    "Google Calendar"
     "Google Calendar",
     "Google Calendar",
     "Google Calendar"
@@ -983,7 +983,7 @@ function saveViewSel(newSel) {
 function getStoredScore(iso) {
   const raw = _fireGet('projeto10_' + iso);
   if (!raw) return null;
-  try { const v = Object.values(JSON.parse(raw)); return v.length ? v.reduce((a,b)=>a+b,0) : null; }
+  try { const v = Object.entries(JSON.parse(raw)).filter(([k,val])=>!k.startsWith('_')&&typeof val==='number').map(([,val])=>val); return v.length ? v.reduce((a,b)=>a+b,0) : null; }
   catch(e) { return null; }
 }
 
@@ -1091,7 +1091,7 @@ function updateScore() {
   const allCats = getAllCats();
   const filled  = Object.keys(viewSel).filter(k => allCats.find(c => c.id === k)).length;
   const total   = allCats.length;
-  const score   = Object.values(viewSel).reduce((a,b)=>a+b, 0);
+  const score   = allCats.filter(c => viewSel[c.id] !== undefined).reduce((acc,c) => acc + viewSel[c.id], 0);
 
   document.getElementById('completion-pill').textContent = `${filled}/${total} preenchidos`;
 
