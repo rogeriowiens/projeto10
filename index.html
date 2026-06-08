@@ -561,6 +561,39 @@
     .proj-stats { grid-template-columns: repeat(2, 1fr); }
     .corpo-inputs { grid-template-columns: 1fr 1fr; }
   }
+  /* ══ TEMA COPA DO MUNDO BRASIL 2026 ══ */
+  body { background: #f0f9f2; }
+  .top-header { background: linear-gradient(145deg, #005c1e 0%, #008c37 60%, #00a841 100%); }
+  .top-header::after { content: '⚽'; }
+  .tab-btn.active { color: #FFDF00; border-bottom-color: #FFDF00; }
+  .score-bar { background: #FFDF00; }
+  .day-nav-btn:hover:not(:disabled) { background: #f0fff4; border-color: #009C3B; color: #009C3B; }
+  .day-nav-today-btn { border: 1.5px solid #009C3B; background: #f0fff4; color: #009C3B; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .day-nav-today-btn:hover { background: #009C3B; color: white; }
+  .day-score-box.today { outline-color: #FFDF00; }
+  .cal-month-cell.today-ring { outline-color: #FFDF00; }
+  .cal-week-card.today-card { background: #f0fff4; outline-color: #FFDF00; }
+  .cal-year-cell.cy-today { outline-color: #FFDF00; }
+  .proj-cal-cell.today { outline-color: #FFDF00; color: #009C3B; }
+  .view-btn.active { background: #009C3B; color: white; border-color: #009C3B; }
+  .cal-nav-btn:hover { background: #f0fff4; border-color: #009C3B; }
+  .cal-nav-title { color: #006400; }
+  .save-btn { background: linear-gradient(135deg, #005c1e, #009C3B); }
+  .add-act-btn { background: #009C3B; }
+  .cfg-cat-save-btn { background: #009C3B; }
+  .cfg-cat-save-btn:hover { background: #007a2e; }
+  .edit-save-btn { background: linear-gradient(135deg, #005c1e, #009C3B); }
+  .opt-btn.pos.sel { background: #009C3B; border-color: #009C3B; box-shadow: 0 2px 8px rgba(0,156,59,.35); }
+  .cfg-emoji-inp:focus, .cfg-label-inp:focus, .cfg-opt-label-inp:focus,
+  .cfg-opt-val:focus, .corpo-field input:focus, .form-group input:focus,
+  .form-group select:focus, .edit-cname:focus, .edit-cval:focus { border-color: #009C3B; }
+  .filter-btn.on { background: #f0fff4; border-color: #009C3B; color: #009C3B; }
+  .section-heading::after, .cfg-section-title::after { background: #e0f2e9; }
+  .section-card { border-top: 3px solid #009C3B; }
+  .meta-card { border-top: 3px solid #009C3B; }
+  .mini-card { border-top: 3px solid #FFDF00; }
+  .week-stat-val, .proj-stat-val, .corpo-stat-val { color: #006400; }
+  .act-stat-val { color: #006400; }
 </style>
 </head>
 <body>
@@ -574,6 +607,7 @@
     </div>
     <div class="hero-label">
       <div class="hero-title">🥗🏋️ PROJETO -10!</div>
+            <div style="font-size:9px;font-weight:900;color:#FFDF00;letter-spacing:.08em;margin-top:2px;">★★★★★ COPA 2026 ⚽</div>
       <div class="hero-sub" id="completion-pill">0/9 preenchidos</div>
     </div>
     <button id="btn-save-all" onclick="_fireSaveAll()" title="Salvar tudo agora" style="background:none;border:2px solid rgba(255,255,255,0.25);border-radius:10px;color:#fff;font-size:20px;padding:6px 10px;cursor:pointer;align-self:center;transition:all .2s;">💾</button>
