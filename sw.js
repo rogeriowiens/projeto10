@@ -1,4 +1,4 @@
-const CACHE = 'p10-v1';
+const CACHE = 'p10-v2';
 
 // Ao instalar, não pré-cacheia nada — busca sob demanda
 self.addEventListener('install', e => {
