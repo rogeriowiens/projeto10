@@ -744,6 +744,7 @@
       <div class="form-hint">Edite nome, emoji, opções e valores de cada categoria. Cada categoria tem seu próprio botão de salvar.</div>
       <div id="config-cats"></div>
       <button class="cfg-reset-btn" onclick="resetConfig()">🔄 Restaurar todos os padrões</button>
+      <button class="cfg-reset-btn" onclick="resetHistorico()" style="color:#dc3545;border-color:#dc3545;">🗑️ Zerar histórico de pontuação</button>
     </div>
     <div class="section-card">
       <div class="section-heading">➕ Nova atividade</div>
@@ -1838,7 +1839,22 @@ function saveConfigChanges() {
 }
 
 function resetConfig() {
-  if (!confirm('Restaurar todas as pontuações e remover atividades personalizadas?')) return;
+  if (!confirm('Restaurar todas as pont
+
+async function resetHistorico() {
+  if (!confirm('⚠️ Isso vai apagar TODO o histórico de pontuação. Esta ação não pode ser desfeita. Continuar?')) return;
+  if (!_uid() || !_fireDb) { alert('Não conectado ao Firebase.'); return; }
+  const keys = Object.keys(_fireCache).filter(k => /^projeto10_\d{4}-\d{2}-\d{2}$/.test(k));
+  if (keys.length === 0) { alert('Nenhum histórico para apagar.'); return; }
+  const updates = {};
+  keys.forEach(k => { updates['users/' + _uid() + '/kv/' + k.replace(/[.#$[\]]/g,'_')] = null; });
+  await firebase.database().ref().update(updates);
+  keys.forEach(k => delete _fireCache[k]);
+  sel = {};
+  updateScore();
+  if (typeof renderMetas === 'function') renderMetas();
+  alert('✅ Histórico zerado com sucesso!');
+}uações e remover atividades personalizadas?')) return;
   saveCfg({});
   rebuildHabitsUI();
   renderConfig();
